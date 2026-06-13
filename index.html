@@ -76,6 +76,22 @@ body { background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460); min-height:10
 .modal input:focus { border-color:#7c4dff; }
 .modal .modal-btns { display:flex; gap:8px; }
 .modal button { flex:1; padding:12px; border-radius:10px; border:none; font-size:15px; font-weight:bold; cursor:pointer; font-family:inherit; }
+
+/* Chart */
+#chartBox { background:rgba(255,255,255,0.04); border-radius:14px; padding:16px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.06); }
+#chartBox h3 { font-size:13px; color:#888; margin-bottom:12px; }
+.chart-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.chart-label { width:44px; font-size:13px; font-weight:bold; text-align:right; flex-shrink:0; }
+.chart-bar-wrap { flex:1; height:22px; background:rgba(255,255,255,0.04); border-radius:6px; overflow:hidden; position:relative; }
+.chart-bar { height:100%; border-radius:6px; transition:width 0.4s ease; display:flex; align-items:center; justify-content:flex-end; padding-right:6px; min-width:30px; }
+.chart-bar.pos { background:linear-gradient(90deg,#69f0ae,#00c853); }
+.chart-bar.neg { background:linear-gradient(90deg,#ff5252,#d50000); }
+.chart-bar.zero { background:rgba(255,255,255,0.1); }
+.chart-value { font-size:10px; font-weight:bold; color:#fff; text-shadow:0 0 4px rgba(0,0,0,0.5); white-space:nowrap; }
+.rank-badge { display:inline-block; width:20px; height:20px; line-height:20px; text-align:center; border-radius:50%; font-size:10px; font-weight:bold; margin-right:4px; }
+.rank-1 { background:#ffd700; color:#000; }
+.rank-2 { background:#c0c0c0; color:#000; }
+.rank-3 { background:#cd7f32; color:#fff; }
 </style>
 </head>
 <body>
@@ -83,6 +99,11 @@ body { background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460); min-height:10
   <div class="header">
     <h1>🕊️ 世界和平积分</h1>
     <div class="total">总积分：<span id="totalScore">813</span></div>
+  </div>
+
+  <div id="chartBox">
+    <h3>🏆 排行榜</h3>
+    <div id="chartContent"></div>
   </div>
 
   <div class="summary-bar">
@@ -183,10 +204,31 @@ function getTotal() {
 
 // ==================== RENDER ====================
 function renderAll() {
+  renderChart();
   renderStats();
   renderBudget();
   renderPeople();
   save();
+}
+
+function renderChart() {
+  const sorted = [...people].sort((a,b)=>b.score-a.score);
+  const maxAbs = Math.max(Math.abs(sorted[0]?.score||1), Math.abs(sorted[sorted.length-1]?.score||1), 1);
+  const ranks = ['🥇','🥈','🥉'];
+  document.getElementById('chartContent').innerHTML = sorted.map((p,i) => {
+    const pct = Math.abs(p.score)/maxAbs*100;
+    const cls = p.score>0?'pos':p.score<0?'neg':'zero';
+    const rankCls = i<3?`rank-${i+1}`:'';
+    const rankBadge = i<3?`<span class="rank-badge ${rankCls}">${ranks[i]}</span>`:`<span class="rank-badge" style="color:#666">${i+1}</span>`;
+    return `<div class="chart-row">
+      <div class="chart-label">${rankBadge}${p.name}</div>
+      <div class="chart-bar-wrap">
+        <div class="chart-bar ${cls}" style="width:${Math.max(pct,3)}%">
+          <span class="chart-value">${p.score>0?'+':''}${p.score}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function renderStats() {
