@@ -154,6 +154,18 @@ body { background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460); min-height:10
   </div>
 </div>
 
+<!-- Chart Modal -->
+<div class="modal-overlay" id="chartOverlay" onclick="if(event.target===this)closeChart()">
+  <div class="modal" style="min-width:320px;max-width:90vw;">
+    <h3 id="chartTitle"></h3>
+    <canvas id="lineChart" width="300" height="200" style="width:100%;border-radius:8px;background:rgba(0,0,0,0.3);"></canvas>
+    <div style="text-align:center;margin-top:10px;">
+      <button onclick="closeChart()" style="padding:8px 24px;border-radius:8px;border:none;background:rgba(255,255,255,0.15);color:#fff;cursor:pointer;font-family:inherit;font-size:14px;">关闭</button>
+    </div>
+  </div>
+</div>
+</div>
+
 <script>
 // ==================== DATA ====================
 const INITIAL_DATA = [
@@ -170,6 +182,7 @@ const INITIAL_DATA = [
 
 let people = [];
 let history = [];
+let personHistory = {}; // { name: [{time, score}] }
 let budget = 0;
 let editTarget = null;
 const STORAGE_KEY = 'pts_data_v2';
@@ -182,10 +195,12 @@ function load() {
       people = d.people || [...INITIAL_DATA.map(p=>({...p}))];
       budget = d.budget !== undefined ? d.budget : 600;
       history = d.history || [];
+      personHistory = d.personHistory || {};
     } else {
       people = INITIAL_DATA.map(p=>({...p}));
       budget = 600;
       history = [];
+      personHistory = {};
     }
   } catch(e) {
     people = INITIAL_DATA.map(p=>({...p}));
@@ -195,7 +210,7 @@ function load() {
 }
 
 function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({people,budget,history}));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({people,budget,history,personHistory}));
 }
 
 function getTotal() {
@@ -258,11 +273,11 @@ function renderPeople() {
   const list = document.getElementById('personList');
   list.innerHTML = people.map((p,i) => {
     const cls = p.score>0?'pos':p.score<0?'neg':'';
-    return `<div class="person-card" onclick="openEdit(${i})" id="person-${i}">
-      <span class="person-name">${p.name}</span>
+    return `<div class="person-card" id="person-${i}">
+      <span class="person-name" onclick="openChart('${p.name.replace(/'/g,"\\'")}')" style="cursor:pointer;">${p.name}</span>
       <span class="person-score ${cls}">${p.score>0?'+':''}${p.score}</span>
       <div style="flex:1"></div>
-      <span style="color:#666;font-size:12px;">点击调整</span>
+      <span onclick="openEdit(${i})" style="color:#7c4dff;font-size:12px;cursor:pointer;">调整</span>
     </div>`;
   }).join('');
 }
@@ -309,6 +324,10 @@ function applyChange(sign) {
     change: change>0?`+${change}`:`${change}`,
     score: people[editTarget].score
   });
+  // Per-person history
+  if(!personHistory[people[editTarget].name]) personHistory[people[editTarget].name] = [];
+  personHistory[people[editTarget].name].push({time, score: people[editTarget].score});
+  if(personHistory[people[editTarget].name].length>200) personHistory[people[editTarget].name].shift();
   if(history.length>50) history.length=50;
   
   closeModal();
@@ -449,6 +468,122 @@ function renderSnapshots() {
   ).join('');
 }
 
+
+// ==================== PERSON CHART ====================
+function openChart(name) {
+  const data = personHistory[name] || [];
+  if(data.length===0){
+    // Show current score as single point
+    const p = people.find(x=>x.name===name);
+    if(!p) return;
+    document.getElementById('chartTitle').textContent = `${name} 积分趋势（暂无历史记录）`;
+    const canvas = document.getElementById('lineChart');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 300; canvas.height = 200;
+    ctx.fillStyle = '#666';
+    ctx.font = '14px "PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`当前积分：${p.score>0?'+':''}${p.score}`, 150, 100);
+    ctx.fillText('调整积分后会生成趋势图', 150, 130);
+  } else {
+    document.getElementById('chartTitle').textContent = `${name} 积分趋势（${data.length}次记录）`;
+    drawLineChart(data, name);
+  }
+  document.getElementById('chartOverlay').style.display = 'flex';
+}
+
+function closeChart() {
+  document.getElementById('chartOverlay').style.display = 'none';
+}
+
+function drawLineChart(data, name) {
+  const canvas = document.getElementById('lineChart');
+  const ctx = canvas.getContext('2d');
+  canvas.width = 300; canvas.height = 200;
+  const W = canvas.width, H = canvas.height;
+  const pad = { top: 20, right: 15, bottom: 30, left: 45 };
+  const pw = W - pad.left - pad.right;
+  const ph = H - pad.top - pad.bottom;
+
+  const scores = data.map(d=>d.score);
+  const minS = Math.min(...scores, 0);
+  const maxS = Math.max(...scores, 0);
+  const range = maxS - minS || 1;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top); ctx.lineTo(pad.left, H-pad.bottom);
+  ctx.lineTo(W-pad.right, H-pad.bottom);
+  ctx.stroke();
+
+  // Zero line
+  if(minS<0 && maxS>0){
+    const zy = pad.top + ph * (maxS/range);
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.setLineDash([3,5]);
+    ctx.beginPath(); ctx.moveTo(pad.left, zy); ctx.lineTo(W-pad.right, zy); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Grid & labels
+  ctx.fillStyle = '#888'; ctx.font = '9px sans-serif'; ctx.textAlign = 'right';
+  for(let i=0;i<=3;i++){
+    const y = pad.top + ph*i/3;
+    const val = maxS - range*i/3;
+    ctx.fillText(Math.round(val), pad.left-4, y+3);
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W-pad.right, y); ctx.stroke();
+  }
+
+  // Time labels
+  ctx.textAlign = 'center';
+  const maxLabels = 5;
+  const step = Math.max(1, Math.floor(data.length/maxLabels));
+  for(let i=0;i<data.length;i+=step){
+    const x = pad.left + pw*i/(data.length-1||1);
+    const t = data[i].time || '';
+    ctx.fillText(t.slice(5), x, H-pad.bottom+14);
+  }
+
+  // Line
+  ctx.strokeStyle = '#4fc3f7';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  data.forEach((d,i)=>{
+    const x = pad.left + pw*i/(data.length-1||1);
+    const y = pad.top + ph*(1-(d.score-minS)/range);
+    if(i===0) ctx.moveTo(x,y);
+    else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // Gradient fill under line
+  const grad = ctx.createLinearGradient(0,pad.top,0,H-pad.bottom);
+  grad.addColorStop(0,'rgba(79,195,247,0.3)');
+  grad.addColorStop(1,'rgba(79,195,247,0)');
+  ctx.lineTo(pad.left + pw*(data.length-1)/(data.length-1||1), H-pad.bottom);
+  ctx.lineTo(pad.left, H-pad.bottom);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Dots
+  data.forEach((d,i)=>{
+    const x = pad.left + pw*i/(data.length-1||1);
+    const y = pad.top + ph*(1-(d.score-minS)/range);
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#4fc3f7';
+    ctx.beginPath(); ctx.arc(x,y,2,0,Math.PI*2); ctx.fill();
+  });
+}
+
+
 // ==================== INIT ====================
 load();
 renderAll();
@@ -458,6 +593,7 @@ if(location.search.includes('reset')){
   people = INITIAL_DATA.map(p=>({...p}));
   budget = 600;
   history = [];
+  personHistory = {};
   renderAll();
   history.replaceState(null,'',location.pathname);
 }
