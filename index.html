@@ -306,32 +306,67 @@ document.getElementById('modalAmount').addEventListener('input', function() {
 
 function closeModal() {
   document.getElementById('modalOverlay').style.display = 'none';
+  document.getElementById('modalAmount').style.display = '';
+  document.getElementById('modalAmount').value = '';
+  document.querySelector('#modalOverlay .modal-btns').innerHTML = `
+    <button class="op-btn add" onclick="applyChange(1)">➕ 增加（经费-）</button>
+    <button class="op-btn sub" onclick="applyChange(-1)">➖ 减少（经费+）</button>
+  `;
   editTarget = null;
 }
 
 function applyChange(sign) {
   const amount = parseInt(document.getElementById('modalAmount').value);
   if(!amount || amount<=0) return;
+  
+  // Step 1: Show confirmation instead of applying immediately
+  const p = people[editTarget];
+  const change = amount * sign;
+  const newScore = p.score + change;
+  const newBudget = budget - change;
+  
+  document.getElementById('modalTitle').textContent = '⚠️ 确认操作';
+  document.getElementById('modalAmount').style.display = 'none';
+  document.getElementById('budgetPreview').innerHTML = `
+    <b>${p.name}</b>：${p.score>0?'+':''}${p.score} →
+    <span style="color:${change>0?'#69f0ae':'#ff5252'}">${change>0?'+':''}${change}</span> →
+    <b>${newScore>0?'+':''}${newScore}</b><br>
+    经费：${budget} → <b>${newBudget}</b>
+  `;
+  document.querySelector('#modalOverlay .modal-btns').innerHTML = `
+    <button class="op-btn sub" onclick="cancelConfirm()" style="background:#666;">取消</button>
+    <button class="op-btn add" onclick="doConfirm(${sign})">✅ 确认</button>
+  `;
+  // Store amount for confirmation
+  document.getElementById('modalAmount').dataset.pendingAmount = amount;
+}
+function doConfirm(sign) {
+  const amount = parseInt(document.getElementById('modalAmount').dataset.pendingAmount);
   const change = amount * sign;
   people[editTarget].score += change;
   budget -= change;
-  
   const now = new Date();
   const time = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
-  history.unshift({
-    time,
-    name: people[editTarget].name,
-    change: change>0?`+${change}`:`${change}`,
-    score: people[editTarget].score
-  });
-  // Per-person history
+  history.unshift({time, name: people[editTarget].name, change: change>0?`+${change}`:`${change}`, score: people[editTarget].score});
   if(!personHistory[people[editTarget].name]) personHistory[people[editTarget].name] = [];
   personHistory[people[editTarget].name].push({time, score: people[editTarget].score});
   if(personHistory[people[editTarget].name].length>200) personHistory[people[editTarget].name].shift();
   if(history.length>50) history.length=50;
-  
   closeModal();
   renderAll();
+}
+function cancelConfirm() {
+  // Reset modal to input state
+  document.getElementById('modalAmount').style.display = '';
+  document.getElementById('modalAmount').value = '';
+  document.getElementById('modalAmount').dataset.pendingAmount = '';
+  document.getElementById('budgetPreview').textContent = '';
+  document.getElementById('modalTitle').textContent = `${people[editTarget].name} 当前积分：${people[editTarget].score>0?'+':''}${people[editTarget].score}`;
+  document.querySelector('#modalOverlay .modal-btns').innerHTML = `
+    <button class="op-btn add" onclick="applyChange(1)">➕ 增加（经费-）</button>
+    <button class="op-btn sub" onclick="applyChange(-1)">➖ 减少（经费+）</button>
+  `;
+  document.getElementById('modalAmount').focus();
 }
 
 // Keyboard: Enter to submit as add
