@@ -110,8 +110,8 @@ body { background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460); min-height:10
     <div class="summary-row" id="summaryStats"></div>
   </div>
 
-  <div class="budget-card">
-    <span class="budget-label">💰 总经费结余</span>
+  <div class="budget-card" onclick="openBudgetEdit()" style="cursor:pointer;">
+    <span class="budget-label">💰 总经费结余（点击调整）</span>
     <span class="budget-value" id="budget">0</span>
   </div>
 
@@ -618,6 +618,47 @@ function drawLineChart(data, name) {
   });
 }
 
+
+// ==================== BUDGET EDIT ====================
+let budgetEditSign = 0;
+
+function openBudgetEdit() {
+  document.getElementById('modalTitle').textContent = '💰 调整总经费 当前：'+budget;
+  document.getElementById('modalAmount').value = '';
+  document.getElementById('modalAmount').style.display = '';
+  document.getElementById('budgetPreview').textContent = '';
+  document.querySelector('#modalOverlay .modal-btns').innerHTML = `
+    <button class="op-btn sub" onclick="applyBudgetChange(-1)">➖ 减少经费</button>
+    <button class="op-btn add" onclick="applyBudgetChange(1)">➕ 增加经费</button>
+  `;
+  document.getElementById('modalOverlay').style.display = 'flex';
+  setTimeout(()=>document.getElementById('modalAmount').focus(), 100);
+}
+function applyBudgetChange(sign) {
+  const amount = parseInt(document.getElementById('modalAmount').value);
+  if(!amount || amount<=0) return;
+  const change = amount * sign;
+  document.getElementById('modalTitle').textContent = '⚠️ 确认经费调整';
+  document.getElementById('modalAmount').style.display = 'none';
+  document.getElementById('budgetPreview').innerHTML = `
+    经费：${budget} <span style="color:${change>0?'#69f0ae':'#ff5252'}">${change>0?'+':''}${change}</span> → <b>${budget+change}</b>
+  `;
+  document.querySelector('#modalOverlay .modal-btns').innerHTML = `
+    <button class="op-btn" onclick="cancelConfirm()" style="background:#666;">取消</button>
+    <button class="op-btn add" onclick="confirmBudget(${sign})">✅ 确认</button>
+  `;
+  document.getElementById('modalAmount').dataset.pendingAmount = amount;
+}
+function confirmBudget(sign) {
+  const amount = parseInt(document.getElementById('modalAmount').dataset.pendingAmount);
+  budget += amount * sign;
+  const now = new Date();
+  const time = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+  history.unshift({time, name:'💰经费', change: (amount*sign>0?'+':'')+(amount*sign), score: budget});
+  if(history.length>50) history.length=50;
+  closeModal();
+  renderAll();
+}
 
 // ==================== INIT ====================
 load();
