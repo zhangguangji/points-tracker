@@ -116,9 +116,10 @@ body { background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460); min-height:10
     <div class="amount-row">
       <input type="number" id="modalAmount" placeholder="输入金额" inputmode="numeric">
     </div>
+    <p style="color:#888;font-size:12px;margin-bottom:12px;text-align:center;" id="budgetPreview"></p>
     <div class="modal-btns">
-      <button class="op-btn add" onclick="applyChange(1)">➕ 增加</button>
-      <button class="op-btn sub" onclick="applyChange(-1)">➖ 减少</button>
+      <button class="op-btn add" onclick="applyChange(1)">➕ 增加（经费-）</button>
+      <button class="op-btn sub" onclick="applyChange(-1)">➖ 减少（经费+）</button>
     </div>
   </div>
 </div>
@@ -126,12 +127,12 @@ body { background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460); min-height:10
 <script>
 // ==================== DATA ====================
 const INITIAL_DATA = [
-  { name:'老李', score:1210 },
-  { name:'老胡', score:2055 },
-  { name:'老殷', score:-1525 },
-  { name:'老姜', score:-1210 },
-  { name:'老张', score:970 },
-  { name:'老刘', score:1560 },
+  { name:'老李', score:870 },
+  { name:'老胡', score:2455 },
+  { name:'老殷', score:-1385 },
+  { name:'老姜', score:-1140 },
+  { name:'老张', score:1300 },
+  { name:'老刘', score:960 },
   { name:'老徐', score:-1380 },
   { name:'老邵', score:1790 },
   { name:'老杨', score:0 },
@@ -149,16 +150,16 @@ function load() {
     if(raw){
       const d = JSON.parse(raw);
       people = d.people || [...INITIAL_DATA.map(p=>({...p}))];
-      budget = d.budget || 0;
+      budget = d.budget !== undefined ? d.budget : 600;
       history = d.history || [];
     } else {
       people = INITIAL_DATA.map(p=>({...p}));
-      budget = 0;
+      budget = 600;
       history = [];
     }
   } catch(e) {
     people = INITIAL_DATA.map(p=>({...p}));
-    budget = 0;
+    budget = 600;
     history = [];
   }
 }
@@ -221,9 +222,21 @@ function openEdit(index) {
   const p = people[index];
   document.getElementById('modalTitle').textContent = `${p.name} 当前积分：${p.score>0?'+':''}${p.score}`;
   document.getElementById('modalAmount').value = '';
+  document.getElementById('budgetPreview').textContent = '';
   document.getElementById('modalOverlay').style.display = 'flex';
   setTimeout(()=>document.getElementById('modalAmount').focus(), 100);
 }
+
+// Live budget preview
+document.getElementById('modalAmount').addEventListener('input', function() {
+  const v = parseInt(this.value)||0;
+  if(v>0){
+    document.getElementById('budgetPreview').innerHTML = 
+      `➕增加：经费 <span style="color:#ff5252">-${v}</span>（${budget}→${budget-v}） | ➖减少：经费 <span style="color:#69f0ae">+${v}</span>（${budget}→${budget+v}）`;
+  } else {
+    document.getElementById('budgetPreview').textContent = '';
+  }
+});
 
 function closeModal() {
   document.getElementById('modalOverlay').style.display = 'none';
@@ -319,7 +332,7 @@ renderAll();
 // Auto-load from URL param to restore initial data
 if(location.search.includes('reset')){
   people = INITIAL_DATA.map(p=>({...p}));
-  budget = 0;
+  budget = 600;
   history = [];
   renderAll();
   history.replaceState(null,'',location.pathname);
