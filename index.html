@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>积分管理系统</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460); min-height:100vh; font-family:'PingFang SC','Microsoft YaHei',sans-serif; color:#fff; padding:16px; -webkit-tap-highlight-color:transparent; }
+.container { max-width:600px; margin:0 auto; }
+
+.header { text-align:center; margin:16px 0 20px; }
+.header h1 { font-size:26px; color:#e0e0ff; margin-bottom:4px; }
+.header .total { font-size:15px; color:#ffd740; background:rgba(255,215,64,0.1); display:inline-block; padding:6px 18px; border-radius:20px; border:1px solid rgba(255,215,64,0.2); }
+
+/* Summary bar */
+.summary-bar { background:rgba(255,255,255,0.05); border-radius:14px; padding:16px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.08); }
+.summary-row { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+.summary-item { text-align:center; flex:1; min-width:80px; }
+.summary-item .label { font-size:11px; color:#888; margin-bottom:2px; }
+.summary-item .value { font-size:20px; font-weight:bold; }
+.positive { color:#69f0ae; }
+.negative { color:#ff5252; }
+.zero { color:#aaa; }
+
+/* Budget card */
+.budget-card { background:rgba(255,215,64,0.08); border-radius:14px; padding:16px; margin-bottom:16px; border:1px solid rgba(255,215,64,0.15); display:flex; justify-content:space-between; align-items:center; }
+.budget-label { font-size:14px; color:#ffd740; }
+.budget-value { font-size:24px; font-weight:bold; color:#ffd740; }
+
+/* People list */
+.person-list { display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+
+.person-card { background:rgba(255,255,255,0.04); border-radius:12px; padding:12px 16px; border:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; gap:12px; transition:all 0.2s; }
+.person-card:hover { background:rgba(255,255,255,0.06); }
+.person-card.editing { border-color:#7c4dff; background:rgba(124,77,255,0.08); }
+
+.person-name { font-size:15px; font-weight:bold; min-width:50px; }
+.person-score { font-size:18px; font-weight:bold; min-width:70px; text-align:right; }
+.person-score.pos { color:#69f0ae; }
+.person-score.neg { color:#ff5252; }
+
+.edit-row { display:flex; gap:6px; align-items:center; flex:1; margin-left:auto; }
+.edit-row input { width:70px; padding:8px; border-radius:8px; border:2px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.08); color:#fff; font-size:15px; text-align:center; outline:none; font-family:inherit; }
+.edit-row input:focus { border-color:#7c4dff; }
+.edit-row .op-btn { padding:8px 12px; border-radius:8px; border:none; font-size:13px; font-weight:bold; cursor:pointer; transition:all 0.15s; white-space:nowrap; }
+.op-btn.add { background:#69f0ae; color:#000; }
+.op-btn.sub { background:#ff5252; color:#fff; }
+.op-btn:active { transform:scale(0.95); }
+
+/* Buttons row */
+.btn-row { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+.btn-row button { flex:1; min-width:120px; padding:14px 20px; border-radius:12px; border:none; font-size:15px; font-weight:bold; cursor:pointer; transition:all 0.15s; font-family:inherit; }
+.btn-primary { background:linear-gradient(135deg,#7c4dff,#448aff); color:#fff; }
+.btn-success { background:linear-gradient(135deg,#00c853,#69f0ae); color:#000; }
+.btn-warning { background:linear-gradient(135deg,#ff6d00,#ffab40); color:#000; }
+.btn-row button:active { transform:scale(0.97); }
+
+/* Summary text area */
+#summaryBox { display:none; margin-top:16px; }
+#summaryBox textarea { width:100%; height:200px; padding:14px; border-radius:12px; background:rgba(255,255,255,0.06); color:#fff; border:1px solid rgba(255,255,255,0.1); font-size:13px; font-family:'PingFang SC','Microsoft YaHei',monospace; resize:vertical; outline:none; line-height:1.8; }
+#summaryBox .copy-btn { margin-top:10px; padding:10px 24px; border-radius:10px; border:none; background:rgba(255,255,255,0.1); color:#fff; cursor:pointer; font-size:14px; font-family:inherit; }
+#summaryBox .copy-btn:active { transform:scale(0.97); }
+
+/* History */
+#historyBox { margin-top:16px; }
+#historyBox h3 { font-size:14px; color:#888; margin-bottom:8px; }
+.history-item { font-size:12px; color:#666; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03); }
+
+/* Modal for edit */
+.modal-overlay { position:fixed; top:0;left:0;right:0;bottom:0; background:rgba(0,0,0,0.7); z-index:50; display:none; justify-content:center; align-items:center; }
+.modal { background:#1a1a2e; border-radius:16px; padding:24px; border:1px solid rgba(255,255,255,0.1); min-width:280px; }
+.modal h3 { margin-bottom:16px; color:#e0e0ff; }
+.modal .amount-row { display:flex; gap:8px; margin-bottom:16px; }
+.modal input { flex:1; padding:12px; border-radius:10px; border:2px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.08); color:#fff; font-size:18px; text-align:center; outline:none; font-family:inherit; }
+.modal input:focus { border-color:#7c4dff; }
+.modal .modal-btns { display:flex; gap:8px; }
+.modal button { flex:1; padding:12px; border-radius:10px; border:none; font-size:15px; font-weight:bold; cursor:pointer; font-family:inherit; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>📊 积分管理系统</h1>
+    <div class="total">总积分：<span id="totalScore">813</span></div>
+  </div>
+
+  <div class="summary-bar">
+    <div class="summary-row" id="summaryStats"></div>
+  </div>
+
+  <div class="budget-card">
+    <span class="budget-label">💰 总经费结余</span>
+    <span class="budget-value" id="budget">0</span>
+  </div>
+
+  <div class="person-list" id="personList"></div>
+
+  <div class="btn-row">
+    <button class="btn-success" onclick="showSummary()">📋 一键汇总</button>
+    <button class="btn-warning" onclick="showHistory()">📜 变更记录</button>
+  </div>
+
+  <div id="summaryBox">
+    <textarea id="summaryText" readonly></textarea>
+    <button class="copy-btn" onclick="copySummary()">📋 复制文字</button>
+  </div>
+
+  <div id="historyBox"></div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h3 id="modalTitle">调整积分</h3>
+    <div class="amount-row">
+      <input type="number" id="modalAmount" placeholder="输入金额" inputmode="numeric">
+    </div>
+    <div class="modal-btns">
+      <button class="op-btn add" onclick="applyChange(1)">➕ 增加</button>
+      <button class="op-btn sub" onclick="applyChange(-1)">➖ 减少</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== DATA ====================
+const INITIAL_DATA = [
+  { name:'老李', score:1210 },
+  { name:'老胡', score:2055 },
+  { name:'老殷', score:-1525 },
+  { name:'老姜', score:-1210 },
+  { name:'老张', score:970 },
+  { name:'老刘', score:1560 },
+  { name:'老徐', score:-1380 },
+  { name:'老邵', score:1790 },
+  { name:'老杨', score:0 },
+];
+
+let people = [];
+let history = [];
+let budget = 0;
+let editTarget = null;
+const STORAGE_KEY = 'pts_data_v2';
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const d = JSON.parse(raw);
+      people = d.people || [...INITIAL_DATA.map(p=>({...p}))];
+      budget = d.budget || 0;
+      history = d.history || [];
+    } else {
+      people = INITIAL_DATA.map(p=>({...p}));
+      budget = 0;
+      history = [];
+    }
+  } catch(e) {
+    people = INITIAL_DATA.map(p=>({...p}));
+    budget = 0;
+    history = [];
+  }
+}
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({people,budget,history}));
+}
+
+function getTotal() {
+  return people.reduce((s,p)=>s+p.score,0);
+}
+
+// ==================== RENDER ====================
+function renderAll() {
+  renderStats();
+  renderBudget();
+  renderPeople();
+  save();
+}
+
+function renderStats() {
+  const total = getTotal();
+  document.getElementById('totalScore').textContent = total;
+  const pos = people.filter(p=>p.score>0).length;
+  const neg = people.filter(p=>p.score<0).length;
+  const zero = people.filter(p=>p.score===0).length;
+  const maxP = Math.max(...people.map(p=>p.score));
+  const minP = Math.min(...people.map(p=>p.score));
+  const maxName = people.find(p=>p.score===maxP)?.name||'';
+  const minName = people.find(p=>p.score===minP)?.name||'';
+  document.getElementById('summaryStats').innerHTML = `
+    <div class="summary-item"><div class="label">👥 人数</div><div class="value" style="color:#e0e0ff">${people.length}</div></div>
+    <div class="summary-item"><div class="label">📈 正分</div><div class="value positive">${pos}人</div></div>
+    <div class="summary-item"><div class="label">📉 负分</div><div class="value negative">${neg}人</div></div>
+    <div class="summary-item"><div class="label">🏆 最高</div><div class="value positive">${maxName} ${maxP}</div></div>
+    <div class="summary-item"><div class="label">🔻 最低</div><div class="value negative">${minName} ${minP}</div></div>
+  `;
+}
+
+function renderBudget() {
+  document.getElementById('budget').textContent = budget;
+}
+
+function renderPeople() {
+  const list = document.getElementById('personList');
+  list.innerHTML = people.map((p,i) => {
+    const cls = p.score>0?'pos':p.score<0?'neg':'';
+    return `<div class="person-card" onclick="openEdit(${i})" id="person-${i}">
+      <span class="person-name">${p.name}</span>
+      <span class="person-score ${cls}">${p.score>0?'+':''}${p.score}</span>
+      <div style="flex:1"></div>
+      <span style="color:#666;font-size:12px;">点击调整</span>
+    </div>`;
+  }).join('');
+}
+
+// ==================== EDIT ====================
+function openEdit(index) {
+  editTarget = index;
+  const p = people[index];
+  document.getElementById('modalTitle').textContent = `${p.name} 当前积分：${p.score>0?'+':''}${p.score}`;
+  document.getElementById('modalAmount').value = '';
+  document.getElementById('modalOverlay').style.display = 'flex';
+  setTimeout(()=>document.getElementById('modalAmount').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').style.display = 'none';
+  editTarget = null;
+}
+
+function applyChange(sign) {
+  const amount = parseInt(document.getElementById('modalAmount').value);
+  if(!amount || amount<=0) return;
+  const change = amount * sign;
+  people[editTarget].score += change;
+  budget -= change;
+  
+  const now = new Date();
+  const time = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+  history.unshift({
+    time,
+    name: people[editTarget].name,
+    change: change>0?`+${change}`:`${change}`,
+    score: people[editTarget].score
+  });
+  if(history.length>50) history.length=50;
+  
+  closeModal();
+  renderAll();
+}
+
+// Keyboard: Enter to submit as add
+document.getElementById('modalAmount').addEventListener('keydown', e => {
+  if(e.key==='Enter') { applyChange(1); }
+  if(e.key==='Escape') { closeModal(); }
+});
+
+// ==================== SUMMARY ====================
+function showSummary() {
+  const box = document.getElementById('summaryBox');
+  if(box.style.display==='block'){ box.style.display='none'; return; }
+  
+  const total = getTotal();
+  const sorted = [...people].sort((a,b)=>b.score-a.score);
+  
+  let text = '═══════════════════\n';
+  text += '   📊 积分汇总表\n';
+  text += '═══════════════════\n\n';
+  text += '【个人积分】\n';
+  sorted.forEach((p,i) => {
+    const sign = p.score>0?'+':p.score<0?'':' ';
+    text += `${i+1}. ${p.name}：${sign}${p.score}\n`;
+  });
+  text += '\n───────────────────\n';
+  text += `总积分：${total}\n`;
+  text += `总经费：${budget}\n`;
+  text += `人数：${people.length}\n`;
+  
+  const pos = sorted.filter(p=>p.score>0);
+  const neg = sorted.filter(p=>p.score<0);
+  text += `正分：${pos.length}人（${pos.map(p=>p.name).join('、')}）\n`;
+  text += `负分：${neg.length}人（${neg.map(p=>p.name).join('、')}）\n`;
+  text += '═══════════════════\n';
+  
+  document.getElementById('summaryText').value = text;
+  box.style.display = 'block';
+  box.scrollIntoView({behavior:'smooth'});
+}
+
+function copySummary() {
+  const ta = document.getElementById('summaryText');
+  ta.select();
+  document.execCommand('copy');
+  
+  // Visual feedback
+  const btn = document.querySelector('#summaryBox .copy-btn');
+  const orig = btn.textContent;
+  btn.textContent = '✅ 已复制!';
+  setTimeout(()=>btn.textContent=orig, 1500);
+}
+
+function showHistory() {
+  const box = document.getElementById('historyBox');
+  if(history.length===0){
+    box.innerHTML = '<p style="color:#666;font-size:13px;">暂无变更记录</p>';
+    return;
+  }
+  box.innerHTML = '<h3>📜 变更记录</h3>' + history.map(h =>
+    `<div class="history-item">${h.time} | ${h.name}: <span style="color:${h.change.startsWith('+')?'#69f0ae':'#ff5252'}">${h.change}</span> → ${h.score>0?'+':''}${h.score}</div>`
+  ).join('');
+  box.scrollIntoView({behavior:'smooth'});
+}
+
+// ==================== INIT ====================
+load();
+renderAll();
+// Auto-load from URL param to restore initial data
+if(location.search.includes('reset')){
+  people = INITIAL_DATA.map(p=>({...p}));
+  budget = 0;
+  history = [];
+  renderAll();
+  history.replaceState(null,'',location.pathname);
+}
+</script>
+</body>
+</html>
