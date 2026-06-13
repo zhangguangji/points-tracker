@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>积分管理系统</title>
+<title>世界和平积分</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body { background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460); min-height:100vh; font-family:'PingFang SC','Microsoft YaHei',sans-serif; color:#fff; padding:16px; -webkit-tap-highlight-color:transparent; }
@@ -81,7 +81,7 @@ body { background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460); min-height:10
 <body>
 <div class="container">
   <div class="header">
-    <h1>📊 积分管理系统</h1>
+    <h1>🕊️ 世界和平积分</h1>
     <div class="total">总积分：<span id="totalScore">813</span></div>
   </div>
 
@@ -266,7 +266,7 @@ function showSummary() {
   const sorted = [...people].sort((a,b)=>b.score-a.score);
   
   let text = '═══════════════════\n';
-  text += '   📊 积分汇总表\n';
+  text += '   🕊️ 世界和平积分\n';
   text += '═══════════════════\n\n';
   text += '【个人积分】\n';
   sorted.forEach((p,i) => {
