@@ -376,15 +376,19 @@ document.getElementById('modalAmount').addEventListener('keydown', e => {
 });
 
 // ==================== SUMMARY ====================
+let lastSummary = null; // {people, budget, time}
+
 function showSummary() {
   const box = document.getElementById('summaryBox');
   if(box.style.display==='block'){ box.style.display='none'; return; }
   
   const total = getTotal();
   const sorted = [...people].sort((a,b)=>b.score-a.score);
+  const now = new Date().toLocaleString('zh-CN');
   
   let text = '═══════════════════\n';
   text += '   🕊️ 世界和平积分\n';
+  text += `   ${now}\n`;
   text += '═══════════════════\n\n';
   text += '【个人积分】\n';
   sorted.forEach((p,i) => {
@@ -396,11 +400,38 @@ function showSummary() {
   text += `总经费：${budget}\n`;
   text += `人数：${people.length}\n`;
   
+  // Show changes since last summary
+  if(lastSummary){
+    text += '\n───────────────────\n';
+    text += '【本次变化】\n';
+    const changes = [];
+    const budgetChange = budget - lastSummary.budget;
+    for(const p of people){
+      const prev = lastSummary.people.find(x=>x.name===p.name);
+      if(!prev && p.score!==0) changes.push(`${p.name}：新增 ${p.score>0?'+':''}${p.score}`);
+      else if(prev && prev.score !== p.score){
+        const diff = p.score - prev.score;
+        changes.push(`${p.name}：${prev.score>0?'+':''}${prev.score} → ${p.score>0?'+':''}${p.score}（${diff>0?'+':''}${diff}）`);
+      }
+    }
+    if(budgetChange !== 0) changes.push(`💰经费：${lastSummary.budget} → ${budget}（${budgetChange>0?'+':''}${budgetChange}）`);
+    if(changes.length===0) text += '（无变化）\n';
+    else changes.forEach(c=>text+=`  ${c}\n`);
+  }
+  
   const pos = sorted.filter(p=>p.score>0);
   const neg = sorted.filter(p=>p.score<0);
+  text += '\n───────────────────\n';
   text += `正分：${pos.length}人（${pos.map(p=>p.name).join('、')}）\n`;
   text += `负分：${neg.length}人（${neg.map(p=>p.name).join('、')}）\n`;
   text += '═══════════════════\n';
+  
+  // Save snapshot for next diff
+  lastSummary = {
+    people: people.map(p=>({name:p.name, score:p.score})),
+    budget,
+    time: now
+  };
   
   document.getElementById('summaryText').value = text;
   box.style.display = 'block';
