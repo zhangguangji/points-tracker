@@ -101,6 +101,15 @@ body { background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460); min-height:10
     <button class="btn-warning" onclick="showHistory()">📜 变更记录</button>
   </div>
 
+  <!-- Save/Load -->
+  <div style="background:rgba(255,255,255,0.04);border-radius:14px;padding:16px;margin-bottom:16px;border:1px solid rgba(255,255,255,0.06);">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+      <input type="text" id="snapshotName" placeholder="存档名称，如：6月第1周" maxlength="20" style="flex:1;padding:10px;border-radius:8px;border:2px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.06);color:#fff;font-size:14px;outline:none;font-family:inherit;">
+      <button onclick="doSave()" style="padding:10px 18px;border-radius:8px;border:none;background:linear-gradient(135deg,#7c4dff,#448aff);color:#fff;font-weight:bold;cursor:pointer;font-family:inherit;white-space:nowrap;">💾 存档</button>
+    </div>
+    <div id="snapshotList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+  </div>
+
   <div id="summaryBox">
     <textarea id="summaryText" readonly></textarea>
     <button class="copy-btn" onclick="copySummary()">📋 复制文字</button>
@@ -326,9 +335,82 @@ function showHistory() {
   box.scrollIntoView({behavior:'smooth'});
 }
 
+// ==================== SNAP SAVE/LOAD ====================
+const SNAP_KEY = 'pts_snapshots';
+
+function getSnapshots() {
+  try { return JSON.parse(localStorage.getItem(SNAP_KEY)||'[]'); } catch(e) { return []; }
+}
+function saveSnapshots(list) {
+  localStorage.setItem(SNAP_KEY, JSON.stringify(list));
+}
+
+function doSave() {
+  const name = document.getElementById('snapshotName').value.trim();
+  if(!name){ alert('请输入存档名称'); return; }
+  const snaps = getSnapshots();
+  // Remove existing with same name
+  const idx = snaps.findIndex(s=>s.name===name);
+  const snap = {
+    name,
+    people: people.map(p=>({...p})),
+    budget,
+    total: getTotal(),
+    time: new Date().toLocaleString('zh-CN')
+  };
+  if(idx>=0) snaps[idx] = snap;
+  else snaps.unshift(snap);
+  if(snaps.length>20) snaps.length=20;
+  saveSnapshots(snaps);
+  document.getElementById('snapshotName').value='';
+  renderSnapshots();
+  // Flash feedback
+  const btn = document.querySelector('#snapshotName + button');
+  const orig = btn.textContent;
+  btn.textContent='✅ 已保存';
+  setTimeout(()=>btn.textContent=orig, 1200);
+}
+
+function doLoad(name) {
+  if(!confirm(`确定加载存档「${name}」？当前数据将被覆盖。`)) return;
+  const snaps = getSnapshots();
+  const snap = snaps.find(s=>s.name===name);
+  if(!snap) return;
+  people = snap.people.map(p=>({...p}));
+  budget = snap.budget;
+  history.unshift({
+    time: new Date().toLocaleString('zh-CN').slice(5,16),
+    name: '系统',
+    change: `加载存档「${name}」`,
+    score: snap.total
+  });
+  save();
+  renderAll();
+}
+
+function doDeleteSnap(name) {
+  const snaps = getSnapshots().filter(s=>s.name!==name);
+  saveSnapshots(snaps);
+  renderSnapshots();
+}
+
+function renderSnapshots() {
+  const snaps = getSnapshots();
+  const list = document.getElementById('snapshotList');
+  if(snaps.length===0){ list.innerHTML='<span style="color:#666;font-size:12px;">暂无存档，输入名称后点「存档」</span>'; return; }
+  list.innerHTML = snaps.map(s=>
+    `<span style="background:rgba(255,255,255,0.05);border-radius:8px;padding:6px 10px;font-size:12px;display:inline-flex;align-items:center;gap:6px;">
+      <b style="color:#4fc3f7;cursor:pointer;" onclick="doLoad('${s.name.replace(/'/g,"\\'")}')" title="点击加载">${s.name}</b>
+      <span style="color:#888;">总分${s.total} | ${s.time.slice(5,16)}</span>
+      <span style="color:#ff5252;cursor:pointer;font-size:10px;" onclick="doDeleteSnap('${s.name.replace(/'/g,"\\'")}')">✕</span>
+    </span>`
+  ).join('');
+}
+
 // ==================== INIT ====================
 load();
 renderAll();
+renderSnapshots();
 // Auto-load from URL param to restore initial data
 if(location.search.includes('reset')){
   people = INITIAL_DATA.map(p=>({...p}));
